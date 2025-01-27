@@ -6,6 +6,7 @@ import (
 	"image/jpeg"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,23 +17,43 @@ import (
 )
 
 func main() {
-	// Specify the original image file
-	originalFile := "img_2.jpeg" // Replace with your actual image file name
+	// Specify the input directory
+	inputDir := "in_images"
 
-	// Print original image dimensions
-	printImageDimensions(originalFile)
+	// Get all image files in the 'in_images' directory
+	files, err := os.ReadDir(inputDir)
+	if err != nil {
+		log.Fatalf("Failed to read input directory: %v", err)
+	}
 
-	// Benchmark Imaging Compression
-	benchmarkCompression("disintegration/imaging", compressWithImaging, originalFile)
+	// Process each file in the directory
+	for _, file := range files {
+		if !file.IsDir() && isImage(file.Name()) {
+			// Get the full path to the image
+			imagePath := filepath.Join(inputDir, file.Name())
 
-	// Benchmark Bimg Compression
-	benchmarkCompression("h2non/bimg", compressWithBimg, originalFile)
+			// Print original image dimensions
+			printImageDimensions(imagePath)
 
-	// Benchmark nfnt/resize Compression
-	benchmarkCompression("nfnt/resize", compressWithResize, originalFile)
+			// Benchmark Imaging Compression
+			benchmarkCompression("disintegration/imaging", compressWithImaging, imagePath)
 
-	// Benchmark EXIF Compression
-	benchmarkCompression("rwcarlsen/goexif/exif", compressWithExif, originalFile)
+			// Benchmark Bimg Compression
+			benchmarkCompression("h2non/bimg", compressWithBimg, imagePath)
+
+			// Benchmark nfnt/resize Compression
+			benchmarkCompression("nfnt/resize", compressWithResize, imagePath)
+
+			// Benchmark EXIF Compression
+			benchmarkCompression("rwcarlsen/goexif/exif", compressWithExif, imagePath)
+		}
+	}
+}
+
+// Function to check if a file is an image
+func isImage(filename string) bool {
+	ext := strings.ToLower(filepath.Ext(filename))
+	return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif"
 }
 
 // Function to print the dimensions of an image
@@ -93,11 +114,11 @@ func compressWithImaging(imagePath string) string {
 		log.Fatalf("Failed to open image: %v", err)
 	}
 
-	// Generate dynamic output file name
+	// Generate dynamic output file name (without in_images prefix)
 	outputFile := generateOutputFileName(imagePath, "disintegration_imaging")
 
-	// Save the compressed image with reduced quality
-	err = imaging.Save(src, outputFile, imaging.JPEGQuality(75))
+	// Save the compressed image with reduced quality to the out_images folder
+	err = saveImageToFolder(src, outputFile)
 	if err != nil {
 		log.Fatalf("Failed to save compressed image: %v", err)
 	}
@@ -130,11 +151,11 @@ func compressWithBimg(imagePath string) string {
 		log.Fatalf("Failed to process image: %v", err)
 	}
 
-	// Generate dynamic output file name
+	// Generate dynamic output file name (without in_images prefix)
 	outputFile := generateOutputFileName(imagePath, "h2non_bimg")
 
-	// Save the compressed image
-	err = os.WriteFile(outputFile, compressedImage, 0644)
+	// Save the compressed image to the out_images folder
+	err = saveImageToFolder(compressedImage, outputFile)
 	if err != nil {
 		log.Fatalf("Failed to save compressed image: %v", err)
 	}
@@ -165,19 +186,13 @@ func compressWithResize(imagePath string) string {
 	height := uint(img.Bounds().Dy())
 	resizedImg := resize.Resize(width, height, img, resize.Lanczos3)
 
-	// Generate dynamic output file name
+	// Generate dynamic output file name (without in_images prefix)
 	outputFile := generateOutputFileName(imagePath, "nfnt_resize")
 
-	// Save the resized image
-	outFile, err := os.Create(outputFile)
+	// Save the resized image to the out_images folder
+	err = saveImageToFolder(resizedImg, outputFile)
 	if err != nil {
-		log.Fatalf("Failed to create output file: %v", err)
-	}
-	defer outFile.Close()
-
-	err = jpeg.Encode(outFile, resizedImg, &jpeg.Options{Quality: 70})
-	if err != nil {
-		log.Fatalf("Failed to encode resized image: %v", err)
+		log.Fatalf("Failed to save resized image: %v", err)
 	}
 
 	fmt.Printf("Resized and compressed image saved as: %s\n", outputFile)
@@ -212,11 +227,11 @@ func compressWithExif(imagePath string) string {
 		log.Fatalf("Failed to open image for compression: %v", err)
 	}
 
-	// Generate dynamic output file name
+	// Generate dynamic output file name (without in_images prefix)
 	outputFile := generateOutputFileName(imagePath, "rwcarlsen_goexif_exif")
 
-	// Save the compressed image
-	err = imaging.Save(img, outputFile, imaging.JPEGQuality(70))
+	// Save the compressed image to the out_images folder
+	err = saveImageToFolder(img, outputFile)
 	if err != nil {
 		log.Fatalf("Failed to save compressed image: %v", err)
 	}
@@ -228,7 +243,44 @@ func compressWithExif(imagePath string) string {
 // Generate a dynamic output file name based on the original file name and package name
 func generateOutputFileName(imagePath, packageName string) string {
 	// Extract the base name (without extension) of the original image
-	baseName := strings.TrimSuffix(imagePath, ".jpeg")
+	baseName := strings.TrimPrefix(imagePath, "in_images/")  // Remove "in_images/" prefix
+	baseName = strings.TrimSuffix(baseName, filepath.Ext(baseName)) // Remove file extension
 	// Return the formatted output file name
-	return fmt.Sprintf("%s_compressed_%s.jpeg", baseName, packageName)
+	return fmt.Sprintf("out_images/%s_compressed_%s%s", baseName, packageName, filepath.Ext(imagePath))
+}
+
+// Save the image to the specified folder
+func saveImageToFolder(img interface{}, outputFile string) error {
+	// Ensure the 'out_images' folder exists
+	err := os.MkdirAll("out_images", os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create 'out_images' folder: %v", err)
+	}
+
+	// Create the output file
+	outFile, err := os.Create(outputFile)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %v", err)
+	}
+	defer outFile.Close()
+
+	// Save the image based on its type (image.Image for imaging and resize, []byte for bimg)
+	switch v := img.(type) {
+	case image.Image:
+		// Encode and save the image if it's of type image.Image
+		err = jpeg.Encode(outFile, v, &jpeg.Options{Quality: 70})
+		if err != nil {
+			return fmt.Errorf("failed to encode image: %v", err)
+		}
+	case []byte:
+		// Save the image if it's of type []byte (for bimg)
+		_, err = outFile.Write(v)
+		if err != nil {
+			return fmt.Errorf("failed to write compressed image bytes: %v", err)
+		}
+	default:
+		return fmt.Errorf("unsupported image type: %T", v)
+	}
+
+	return nil
 }
