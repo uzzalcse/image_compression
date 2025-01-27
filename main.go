@@ -6,8 +6,8 @@ import (
 	"image/jpeg"
 	"log"
 	"os"
+	"strings"
 	"time"
-	_"path/filepath"
 
 	"github.com/disintegration/imaging"
 	"github.com/nfnt/resize"
@@ -17,7 +17,7 @@ import (
 
 func main() {
 	// Specify the original image file
-	originalFile := "image_1.jpeg" // Replace with your actual image file name
+	originalFile := "img_2.jpeg" // Replace with your actual image file name
 
 	// Print original image dimensions
 	printImageDimensions(originalFile)
@@ -93,8 +93,10 @@ func compressWithImaging(imagePath string) string {
 		log.Fatalf("Failed to open image: %v", err)
 	}
 
+	// Generate dynamic output file name
+	outputFile := generateOutputFileName(imagePath, "disintegration_imaging")
+
 	// Save the compressed image with reduced quality
-	outputFile := "compressed_imaging.jpeg"
 	err = imaging.Save(src, outputFile, imaging.JPEGQuality(75))
 	if err != nil {
 		log.Fatalf("Failed to save compressed image: %v", err)
@@ -128,8 +130,10 @@ func compressWithBimg(imagePath string) string {
 		log.Fatalf("Failed to process image: %v", err)
 	}
 
+	// Generate dynamic output file name
+	outputFile := generateOutputFileName(imagePath, "h2non_bimg")
+
 	// Save the compressed image
-	outputFile := "compressed_bimg.jpeg"
 	err = os.WriteFile(outputFile, compressedImage, 0644)
 	if err != nil {
 		log.Fatalf("Failed to save compressed image: %v", err)
@@ -161,8 +165,10 @@ func compressWithResize(imagePath string) string {
 	height := uint(img.Bounds().Dy())
 	resizedImg := resize.Resize(width, height, img, resize.Lanczos3)
 
+	// Generate dynamic output file name
+	outputFile := generateOutputFileName(imagePath, "nfnt_resize")
+
 	// Save the resized image
-	outputFile := "compressed_resize.jpeg"
 	outFile, err := os.Create(outputFile)
 	if err != nil {
 		log.Fatalf("Failed to create output file: %v", err)
@@ -206,8 +212,10 @@ func compressWithExif(imagePath string) string {
 		log.Fatalf("Failed to open image for compression: %v", err)
 	}
 
+	// Generate dynamic output file name
+	outputFile := generateOutputFileName(imagePath, "rwcarlsen_goexif_exif")
+
 	// Save the compressed image
-	outputFile := "compressed_exif.jpeg"
 	err = imaging.Save(img, outputFile, imaging.JPEGQuality(70))
 	if err != nil {
 		log.Fatalf("Failed to save compressed image: %v", err)
@@ -215,4 +223,12 @@ func compressWithExif(imagePath string) string {
 
 	fmt.Printf("Compressed image with EXIF metadata saved as: %s\n", outputFile)
 	return outputFile
+}
+
+// Generate a dynamic output file name based on the original file name and package name
+func generateOutputFileName(imagePath, packageName string) string {
+	// Extract the base name (without extension) of the original image
+	baseName := strings.TrimSuffix(imagePath, ".jpeg")
+	// Return the formatted output file name
+	return fmt.Sprintf("%s_compressed_%s.jpeg", baseName, packageName)
 }
