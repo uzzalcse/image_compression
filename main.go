@@ -6,6 +6,7 @@ import (
 	"image/jpeg"
 	"log"
 	"os"
+	"time"
 	_"path/filepath"
 
 	"github.com/disintegration/imaging"
@@ -21,17 +22,17 @@ func main() {
 	// Print original image dimensions
 	printImageDimensions(originalFile)
 
-	// Imaging Compression
-	compressWithImaging(originalFile)
+	// Benchmark Imaging Compression
+	benchmarkCompression("disintegration/imaging", compressWithImaging, originalFile)
 
-	// Bimg Compression
-	compressWithBimg(originalFile)
+	// Benchmark Bimg Compression
+	benchmarkCompression("h2non/bimg", compressWithBimg, originalFile)
 
-	// nfnt/resize Compression
-	compressWithResize(originalFile)
+	// Benchmark nfnt/resize Compression
+	benchmarkCompression("nfnt/resize", compressWithResize, originalFile)
 
-	// EXIF Metadata Handling
-	compressWithExif(originalFile)
+	// Benchmark EXIF Compression
+	benchmarkCompression("rwcarlsen/goexif/exif", compressWithExif, originalFile)
 }
 
 // Function to print the dimensions of an image
@@ -53,8 +54,37 @@ func printImageDimensions(imagePath string) {
 	fmt.Printf("Image Dimensions for %s: %d x %d\n", imagePath, img.Bounds().Dx(), img.Bounds().Dy())
 }
 
+// Benchmark function to measure time, file size, and quality
+func benchmarkCompression(methodName string, compressFunc func(string) string, imagePath string) {
+	startTime := time.Now()
+
+	// Perform compression
+	compressedFile := compressFunc(imagePath)
+
+	// Measure time taken for compression
+	duration := time.Since(startTime)
+
+	// Get the file size of the original image
+	originalFile, err := os.Stat(imagePath)
+	if err != nil {
+		log.Fatalf("Failed to get original image file info: %v", err)
+	}
+
+	// Get the file size of the compressed image
+	compressedFileInfo, err := os.Stat(compressedFile)
+	if err != nil {
+		log.Fatalf("Failed to get compressed image file info: %v", err)
+	}
+
+	// Display the benchmarking results
+	fmt.Printf("\n[%s Benchmark]\n", methodName)
+	fmt.Printf("Time taken: %v\n", duration)
+	fmt.Printf("Original file size: %d bytes\n", originalFile.Size())
+	fmt.Printf("Compressed file size: %d bytes\n", compressedFileInfo.Size())
+}
+
 // Compression using "disintegration/imaging"
-func compressWithImaging(imagePath string) {
+func compressWithImaging(imagePath string) string {
 	fmt.Println("\n[Using disintegration/imaging]")
 
 	// Open the original image
@@ -70,12 +100,12 @@ func compressWithImaging(imagePath string) {
 		log.Fatalf("Failed to save compressed image: %v", err)
 	}
 
-
 	fmt.Printf("Compressed image saved as: %s\n", outputFile)
+	return outputFile
 }
 
 // Compression using "h2non/bimg"
-func compressWithBimg(imagePath string) {
+func compressWithBimg(imagePath string) string {
 	fmt.Println("\n[Using h2non/bimg]")
 
 	// Read the input image
@@ -105,12 +135,12 @@ func compressWithBimg(imagePath string) {
 		log.Fatalf("Failed to save compressed image: %v", err)
 	}
 
-
 	fmt.Printf("Compressed image saved as: %s\n", outputFile)
+	return outputFile
 }
 
 // Compression using "nfnt/resize"
-func compressWithResize(imagePath string) {
+func compressWithResize(imagePath string) string {
 	fmt.Println("\n[Using nfnt/resize]")
 
 	// Open the original image
@@ -144,12 +174,12 @@ func compressWithResize(imagePath string) {
 		log.Fatalf("Failed to encode resized image: %v", err)
 	}
 
-
 	fmt.Printf("Resized and compressed image saved as: %s\n", outputFile)
+	return outputFile
 }
 
 // Compression with EXIF Metadata Handling using "rwcarlsen/goexif/exif"
-func compressWithExif(imagePath string) {
+func compressWithExif(imagePath string) string {
 	fmt.Println("\n[Using rwcarlsen/goexif/exif]")
 
 	// Open the image file
@@ -183,6 +213,6 @@ func compressWithExif(imagePath string) {
 		log.Fatalf("Failed to save compressed image: %v", err)
 	}
 
-
 	fmt.Printf("Compressed image with EXIF metadata saved as: %s\n", outputFile)
+	return outputFile
 }
