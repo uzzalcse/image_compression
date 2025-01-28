@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	_"github.com/anthonynsimon/bild/imgio"
+	"github.com/anthonynsimon/bild/transform"
 
 	"github.com/disintegration/imaging"
 	"github.com/nfnt/resize"
@@ -46,6 +48,8 @@ func main() {
 
 			// Benchmark EXIF Compression
 			benchmarkCompression("rwcarlsen/goexif/exif", compressWithExif, imagePath)
+			// Benchmark Bild Compression
+			benchmarkCompression("anthonynsimon/bild", compressWithBild, imagePath)
 		}
 	}
 }
@@ -237,6 +241,51 @@ func compressWithExif(imagePath string) string {
 	}
 
 	fmt.Printf("Compressed image with EXIF metadata saved as: %s\n", outputFile)
+	return outputFile
+}
+
+// New function for compression using "anthonynsimon/bild"
+
+func compressWithBild(imagePath string) string {
+	fmt.Println("\n[Using anthonynsimon/bild]")
+
+	// Load the image using standard image package first for better performance
+	file, err := os.Open(imagePath)
+	if err != nil {
+		log.Fatalf("Failed to open image: %v", err)
+	}
+	defer file.Close()
+
+	// Decode image
+	img, _, err := image.Decode(file)
+	if err != nil {
+		log.Fatalf("Failed to decode image: %v", err)
+	}
+
+	// Calculate new dimensions (90% of original)
+	width := float64(img.Bounds().Dx()) * 0.9
+	height := float64(img.Bounds().Dy()) * 0.9
+
+	// Use bild's transform with ResizeStrategyFit for better performance
+	resized := transform.Resize(img, int(width), int(height), transform.Linear)
+
+	// Generate output filename
+	outputFile := generateOutputFileName(imagePath, "anthonynsimon_bild")
+
+	// Create output file
+	out, err := os.Create(outputFile)
+	if err != nil {
+		log.Fatalf("Failed to create output file: %v", err)
+	}
+	defer out.Close()
+
+	// Use jpeg.Encode directly with quality option
+	err = jpeg.Encode(out, resized, &jpeg.Options{Quality: 70})
+	if err != nil {
+		log.Fatalf("Failed to encode compressed image: %v", err)
+	}
+
+	fmt.Printf("Compressed image saved as: %s\n", outputFile)
 	return outputFile
 }
 
