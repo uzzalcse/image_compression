@@ -116,11 +116,14 @@ func compressWithImaging(imagePath string) (string, error) {
     }
 
     // Get original dimensions
-    width := src.Bounds().Dx()
-    height := src.Bounds().Dy()
+    width := (src.Bounds().Dx())
+    height := (src.Bounds().Dy())
+
+	newWidth := int(float64(width) * 0.8)
+    newHeight := int(float64(height) * 0.8)
 
     // Resize using Lanczos resampling algorithm and NearestNeighbor filter
-    processed := imaging.Resize(src, width, height, imaging.Lanczos)
+    processed := imaging.Resize(src, newWidth, newHeight, imaging.Lanczos)
 
     // Generate output filename
     outputFile := generateOutputFileName(imagePath, "disintegration_imaging")
