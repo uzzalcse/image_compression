@@ -100,7 +100,6 @@ func benchmarkCompression(methodName string, compressFunc func(string) (string, 
 		log.Printf("Error getting compressed file info: %v", err)
 		return
 	}
-
 	fmt.Printf("[%s Benchmark]\n", methodName)
 	fmt.Printf("Time taken: %v\n", duration)
 	fmt.Printf("Original file size: %d bytes\n", originalFile.Size())
@@ -108,20 +107,31 @@ func benchmarkCompression(methodName string, compressFunc func(string) (string, 
 }
 
 func compressWithImaging(imagePath string) (string, error) {
-	fmt.Println("[Using disintegration/imaging]")
+    fmt.Println("[Using disintegration/imaging]")
 
-	src, err := imaging.Open(imagePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to open image: %v", err)
-	}
+    // Open the image
+    src, err := imaging.Open(imagePath)
+    if err != nil {
+        return "", fmt.Errorf("failed to open image: %v", err)
+    }
 
-	outputFile := generateOutputFileName(imagePath, "disintegration_imaging")
+    // Get original dimensions
+    width := src.Bounds().Dx()
+    height := src.Bounds().Dy()
 
-	if err := saveImageToFolder(src, outputFile); err != nil {
-		return "", fmt.Errorf("failed to save compressed image: %v", err)
-	}
+    // Resize using Lanczos resampling algorithm and NearestNeighbor filter
+    processed := imaging.Resize(src, width, height, imaging.Lanczos)
 
-	return outputFile, nil
+    // Generate output filename
+    outputFile := generateOutputFileName(imagePath, "disintegration_imaging")
+
+    // Save with reduced quality (increased compression)
+    opts := imaging.JPEGQuality(60)
+    if err := imaging.Save(processed, outputFile, opts); err != nil {
+        return "", fmt.Errorf("failed to save compressed image: %v", err)
+    }
+
+    return outputFile, nil
 }
 
 func compressWithBimg(imagePath string) (string, error) {
